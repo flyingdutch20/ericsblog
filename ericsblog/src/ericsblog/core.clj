@@ -212,3 +212,75 @@
   `(let [stemmer# ~stemmer, word# (subword stemmer#)]
      (cond-ends-helper ~var stemmer# word# ~@test-exprs)))
 
+(defn stem-plural
+  "This is part of step 1ab. It removes plurals (-s) from a stem."
+  [stemmer]
+  (if (= (last (:word stemmer)) \s)
+    (cond-ends? st stemmer
+                "sses" (reset-index (pop (pop (:word st))))
+                "ies" (set-to st "i")
+                :else (if (and (>= (count (:word st)) 2)
+                               (not= (nth (:word st) (- (count (:word st)) 2)) \s))
+                        (assoc st :word (pop (:word st)))
+                        st))
+    stemmer))
+
+(defn stem-expand-suffix
+  "This is part of Step 1ab. It expands -at, -bl and -iz by adding an -e in certain circumstances."
+  [stemmer]
+  (cond-ends? st stemmer 
+              "at" (set-to st "ate")
+              "bl" (set-to st "ble")
+              "iz" (set-to st "ize")
+              :else (cond 
+                      (double-c? st (dec (count (:word st))))
+                      (if (#{\l \s \z} (last (:word st)))
+                        st
+                        (assoc st :word (pop (:word st))))
+                      (and (= (m st) 1) (cvc? st (dec (count (:word st)))))
+                      (set-to st "e")
+                      :else st)))
+
+(defn stem-verb-ending
+  "This is part of step 1ab. It removes verb endings -ed and -ing."
+  [stemmer]
+  (cond-ends? st stemmer
+              "eed" (if (pos? (m st))
+                      (assoc st :word (pop (:word st)))
+                      stemmer)
+              "ed" (if (vowel-in-stem? st)
+                     (stem-expand-suffix (assoc st :word (subword st)))
+                     stemmer)
+              "ing" (if (vowel-in-stem? st)
+                      (stem-expand-suffix (assoc st :word (subword st)))
+                      stemmer)))
+
+(defn step-1ab
+  "step-1ab gets rid of plurals and -ed or -ing. E.g.,
+    caresses -> caress
+    ponies -> poni
+    ties -> ti
+    caress -> caress
+    cats -> cat
+    feed -> feed
+    agreed -> agree
+    disabled -> disable
+    matting -> mat
+    mating -> mate
+    meeting -> meet
+    milling -> mill
+    messing -> mess
+    meetings -> meet
+  "
+  [stemmer]
+  (-> stemmer stem-plural stem-verb-ending))
+
+(defn step-1c
+  "Turns terminal y to i when there is another vowel in the stem."
+  [stemmer]
+  (if-ends? st stemmer "y"
+            (if (vowel-in-stem? st)
+              (reset-index (conj (pop (:word st)) \i))
+              stemmer)))
+
+
