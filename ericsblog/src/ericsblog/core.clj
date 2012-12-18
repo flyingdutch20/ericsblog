@@ -283,4 +283,106 @@
               (reset-index (conj (pop (:word st)) \i))
               stemmer)))
 
+(defn step-2
+  [stemmer]
+  (cond-ends? st stemmer
+              "ational" (r st stemmer "ate")
+              "tional" (r st stemmer "tion")
+              "enci" (r st stemmer "ence")
+              "anci" (r st stemmer "ance")
+              "izer" (r st stemmer "ize")
+              "bli" (r st stemmer "ble")
+              "alli" (r st stemmer "al")
+              "entli" (r st stemmer "ent")
+              "eli" (r st stemmer "e")
+              "ousli" (r st stemmer "ous")
+              "ization" (r st stemmer "ize")
+              "ation" (r st stemmer "ate")
+              "ator" (r st stemmer "ate")
+              "alism" (r st stemmer "al")
+              "iveness" (r st stemmer "ive")
+              "fulness" (r st stemmer "ful")
+              "ousness" (r st stemmer "ous")
+              "fulness" (r st stemmer "ful")
+              "ousness" (r st stemmer "ous")
+              "aliti" (r st stemmer "al")
+              "iviti" (r st stemmer "ive")
+              "biliti" (r st stemmer "ble")
+              "logi" (r st stemmer "log")))
+
+(defn step-3
+  "deals with -ic-, -full, -ness, etc., using
+  a similar strategy to step-2."
+  [stemmer]
+  (cond-ends? st stemmer
+              "icate" (r st stemmer "ic")
+              "ative" (r st stemmer "")
+              "alize" (r st stemmer "al")
+              "iciti" (r st stemmer "ic")
+              "ical" (r st stemmer "ic")
+              "ful" (r st stemmer "")
+              "ness" (r st stemmer "")))
+
+(defn chop 
+  "If there is more than one internal consonant cluster in the stem,
+   this chops the ending (as identified by the index)."
+  [stemmer]
+  (if (> (m stemmer) 1)
+    (assoc stemmer :word (subword stemmer))
+    stemmer))
+
+(defn step-4
+  "takes off -ant, -ence, etc., in context <c>vcvc<v>."
+  [stemmer]
+  (cond-ends? st stemmer
+              "al" (chop st)
+              "ance" (chop st)
+              "ence" (chop st)
+              "er" (chop st)
+              "ic" (chop st)
+              "able" (chop st)
+              "ible" (chop st)
+              "ant" (chop st)
+              "ement" (chop st)
+              "ment" (chop st)
+              "ent" (chop st)
+              "ion" (if (#{\s \t} (index-char st))
+                      (chop st)
+                      stemmer)
+              "ou" (chop st)
+              "ism" (chop st)
+              "ate" (chop st)
+              "iti" (chop st)
+              "ous" (chop st)
+              "ive" (chop st)
+              "ize" (chop st)))
+
+(defn rule-e 
+  "This removes the final -e from a word if:
+   - there is more than one internal consonant cluster or 
+   - there is exactly one final consonant cluster and 
+   it is not preceded by a CVC sequence."
+  [stemmer]
+  (if (= (last (:word stemmer)) \e)
+    (let [a (m stemmer)]
+      (if (or (> a 1)
+              (and (= a 1)
+                   (not (cvc? stemmer (dec (:index stemmer))))))
+        (pop-word stemmer)
+        stemmer))
+    stemmer))
+
+(defn rule-l 
+  "This changes -ll to -l if (> (m) 1)."
+  [stemmer]
+  (if (and (= (last (:word stemmer)) \l)
+           (double-c? stemmer (dec (count (:word stemmer))))
+           (> (m stemmer) 1))
+    (pop-word stemmer)
+    stemmer))
+
+(defn step-5 
+  "removes a final -e and changes -ll to -l if (> (m) 1)."
+  [stemmer]
+  (-> stemmer :word reset-index rule-e rule-l))
 
