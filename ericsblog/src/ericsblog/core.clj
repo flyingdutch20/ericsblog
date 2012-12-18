@@ -386,3 +386,74 @@
   [stemmer]
   (-> stemmer :word reset-index rule-e rule-l))
 
+(defn stem 
+  [word]
+  (if (<= (count word) 2)
+    word 
+    (apply str (-> word make-stemmer 
+                 step-1ab step-1c step-2 step-3 step-4 step-5 
+                 :word))))
+
+(defn read-lines 
+  [filename]
+  (with-open [reader (new java.io.BufferedReader (new java.io.FileReader filename))]
+    (doall (line-seq reader))))
+
+(defn test-porter 
+  ([]
+    (test-porter (.MAX_VALUE Integer) false))
+  ([n output-all?]
+    (loop [input (take n (read-lines "porter-test/vov.txt"))
+           expected (take n (read-lines "porter-test/output.txt")), total 0 correct 0 error 0]
+      (if (and input expected)
+        (let [i (first input), e (first expected), a (stem i)]
+          (if (= a e)
+            (do
+              (when output-all? 
+                (println "OK: " (pr-str i)))
+              (recur (rest input)
+                     (rest expected)
+                     (inc total)
+                     (inc correct)
+                     error))
+            (do 
+              (println "ERROR: " (pr-str i)
+                       "=> (" (pr-str a) " != " (pr-str e) ")")
+              (recur (rest input)
+                     (rest expected)
+                     (inc total)
+                     correct
+                     (inc error)))))
+        [total correct error]))))
+
+(defn trace-call 
+  [f tag]
+  (fn [& input]
+    (print tag ":" input "-> ") (flush)
+    (let [result (apply f input)]
+      (println result) (flush)
+      result)))
+
+(defmacro trace 
+  [fn-name]
+  `(def ~fn-name (trace-call ~fn-name '~fn-name)))
+
+(defmacro debug 
+  [expr]
+  `(let [value# ~expr]
+     (println '~expr "=>" value#)
+     (flush)
+     value#))
+
+(defn debug-stem
+  [word]
+  (binding [stem (trace stem),
+            make-stemmer (trace make-stemmer),
+            step-1ab (trace step-1ab),
+            step-1c (trace step-1c),
+            step-2 (trace step-2),
+            step-3 (trace step-3),
+            step-4 (trace step-4),
+            step-5 (trace step-5)]
+    (stem word)))
+
